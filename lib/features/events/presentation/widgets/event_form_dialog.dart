@@ -18,15 +18,9 @@ class EventFormDialog extends StatefulWidget {
 }
 
 class _EventFormDialogState extends State<EventFormDialog> {
-  final templeIdController = TextEditingController();
-  final groupIdController = TextEditingController();
   final titleController = TextEditingController();
   final descriptionController = TextEditingController();
   final locationController = TextEditingController();
-  final startsAtController = TextEditingController();
-  final endsAtController = TextEditingController();
-
-  /// ✅ NEW
   final posterImageController = TextEditingController();
 
   final categories = const [
@@ -51,6 +45,10 @@ class _EventFormDialogState extends State<EventFormDialog> {
   String? selectedTempleId;
   String? selectedGroupId;
 
+  DateTime? selectedDate;
+  TimeOfDay? selectedStartTime;
+  TimeOfDay? selectedEndTime;
+
   bool get isEditing => widget.event != null;
 
   @override
@@ -59,73 +57,189 @@ class _EventFormDialogState extends State<EventFormDialog> {
 
     final event = widget.event;
 
-    templeIdController.text = event?['templeId']?.toString() ?? '';
-    groupIdController.text = event?['groupId']?.toString() ?? '';
     titleController.text = event?['title']?.toString() ?? '';
     descriptionController.text = event?['description']?.toString() ?? '';
     locationController.text = event?['locationName']?.toString() ?? '';
-
-    /// ✅ NEW
     posterImageController.text = event?['posterImageUrl']?.toString() ?? '';
-
-    startsAtController.text = _formatForInput(event?['startsAt']?.toString());
-    endsAtController.text = _formatForInput(event?['endsAt']?.toString());
 
     selectedTempleId = event?['templeId']?.toString();
     selectedGroupId = event?['groupId']?.toString();
 
-    selectedCategory = event?['category']?.toString() ?? 'other';
-    selectedEventMode = event?['eventMode']?.toString() ?? 'offline';
-    selectedAttendanceMode = event?['attendanceMode']?.toString() ?? 'qr';
+    selectedCategory = _safeDropdownValue(
+      event?['category']?.toString(),
+      categories,
+      'other',
+    );
+
+    selectedEventMode = _safeDropdownValue(
+      event?['eventMode']?.toString(),
+      eventModes,
+      'offline',
+    );
+
+    selectedAttendanceMode = _safeDropdownValue(
+      event?['attendanceMode']?.toString(),
+      attendanceModes,
+      'qr',
+    );
+
     isActive = event?['isActive'] == false ? false : true;
+
+    final start = _parseLocalDateTime(event?['startsAt']?.toString());
+    final end = _parseLocalDateTime(event?['endsAt']?.toString());
+
+    if (start != null) {
+      selectedDate = DateTime(start.year, start.month, start.day);
+      selectedStartTime = TimeOfDay(hour: start.hour, minute: start.minute);
+    }
+
+    if (end != null) {
+      selectedEndTime = TimeOfDay(hour: end.hour, minute: end.minute);
+    }
+
+    posterImageController.addListener(() {
+      if (mounted) setState(() {});
+    });
   }
 
-  String _formatForInput(String? iso) {
-    if (iso == null || iso.isEmpty) return '';
+  String _safeDropdownValue(
+    String? value,
+    List<String> allowed,
+    String fallback,
+  ) {
+    if (value != null && allowed.contains(value)) return value;
+    return fallback;
+  }
+
+  DateTime? _parseLocalDateTime(String? iso) {
+    if (iso == null || iso.trim().isEmpty) return null;
     try {
-      final dt = DateTime.parse(iso).toLocal();
-      return DateFormat('yyyy-MM-dd HH:mm').format(dt);
+      return DateTime.parse(iso).toLocal();
     } catch (_) {
-      return iso;
+      return null;
     }
   }
 
-  String _toIso(String value) {
-    final parsed = DateFormat('yyyy-MM-dd HH:mm').parse(value, true).toLocal();
-    return parsed.toUtc().toIso8601String();
+  DateTime _combine(DateTime date, TimeOfDay time) {
+    return DateTime(date.year, date.month, date.day, time.hour, time.minute);
   }
 
   @override
   void dispose() {
-    templeIdController.dispose();
-    groupIdController.dispose();
     titleController.dispose();
     descriptionController.dispose();
     locationController.dispose();
-    startsAtController.dispose();
-    endsAtController.dispose();
-
-    /// ✅ NEW
     posterImageController.dispose();
-
     super.dispose();
   }
 
+  Future<void> _pickDate() async {
+    final now = DateTime.now();
+
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: selectedDate ?? now,
+      firstDate: DateTime(now.year - 1),
+      lastDate: DateTime(now.year + 10),
+    );
+
+    if (picked == null) return;
+
+    setState(() {
+      selectedDate = DateTime(picked.year, picked.month, picked.day);
+    });
+  }
+
+  Future<void> _pickStartTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: selectedStartTime ?? TimeOfDay.now(),
+    );
+
+    if (picked == null) return;
+
+    setState(() {
+      selectedStartTime = picked;
+
+      if (selectedEndTime == null) {
+        final startAsDate = DateTime(2000, 1, 1, picked.hour, picked.minute);
+        final suggestedEnd = startAsDate.add(const Duration(hours: 1));
+        selectedEndTime = TimeOfDay(
+          hour: suggestedEnd.hour,
+          minute: suggestedEnd.minute,
+        );
+      }
+    });
+  }
+
+  Future<void> _pickEndTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: selectedEndTime ?? selectedStartTime ?? TimeOfDay.now(),
+    );
+
+    if (picked == null) return;
+
+    setState(() {
+      selectedEndTime = picked;
+    });
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
   void submit() {
+    final templeId = selectedTempleId?.trim();
+    final groupId = selectedGroupId?.trim();
+
+    if (templeId == null || templeId.isEmpty) {
+      _showError('Please select a temple.');
+      return;
+    }
+
+    if (titleController.text.trim().isEmpty) {
+      _showError('Please enter an event title.');
+      return;
+    }
+
+    if (selectedDate == null) {
+      _showError('Please select an event date.');
+      return;
+    }
+
+    if (selectedStartTime == null) {
+      _showError('Please select a start time.');
+      return;
+    }
+
+    if (selectedEndTime == null) {
+      _showError('Please select an end time.');
+      return;
+    }
+
+    final startsAt = _combine(selectedDate!, selectedStartTime!);
+    final endsAt = _combine(selectedDate!, selectedEndTime!);
+
+    if (!endsAt.isAfter(startsAt)) {
+      _showError('End time must be after start time.');
+      return;
+    }
+
     Navigator.of(context).pop({
-      'templeId': selectedTempleId ?? templeIdController.text.trim(),
-      'groupId': selectedGroupId ?? groupIdController.text.trim(),
+      'templeId': templeId,
+      'groupId': groupId == null || groupId.isEmpty ? null : groupId,
       'category': selectedCategory,
       'title': titleController.text.trim(),
       'description': descriptionController.text.trim(),
       'eventMode': selectedEventMode,
       'locationName': locationController.text.trim(),
-      'startsAt': _toIso(startsAtController.text.trim()),
-      'endsAt': _toIso(endsAtController.text.trim()),
+      'startsAt': startsAt.toUtc().toIso8601String(),
+      'endsAt': endsAt.toUtc().toIso8601String(),
       'attendanceMode': selectedAttendanceMode,
       'isActive': isActive,
-
-      /// ✅ NEW FIELD
       'posterImageUrl': posterImageController.text.trim(),
     });
   }
@@ -133,7 +247,55 @@ class _EventFormDialogState extends State<EventFormDialog> {
   InputDecoration inputDecoration(String label) {
     return InputDecoration(
       labelText: label,
-      border: const OutlineInputBorder(),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+    );
+  }
+
+  String _displayDate() {
+    if (selectedDate == null) return 'Select event date';
+    return DateFormat('EEE, dd MMM yyyy').format(selectedDate!);
+  }
+
+  String _displayTime(TimeOfDay? time, String placeholder) {
+    if (time == null) return placeholder;
+    return time.format(context);
+  }
+
+  Widget _pickerField({
+    required String label,
+    required String value,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: onTap,
+      child: InputDecorator(
+        decoration: inputDecoration(label),
+        child: Row(
+          children: [
+            Icon(icon, size: 19, color: Colors.blueGrey),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                value,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _sectionTitle(String title) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Text(
+        title,
+        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
+      ),
     );
   }
 
@@ -147,14 +309,67 @@ class _EventFormDialogState extends State<EventFormDialog> {
         .map((e) => Map<String, dynamic>.from(e as Map))
         .toList();
 
+    final posterUrl = posterImageController.text.trim();
+
     return AlertDialog(
       title: Text(isEditing ? 'Edit Event' : 'Create Event'),
       content: SizedBox(
-        width: 560,
+        width: 620,
         child: SingleChildScrollView(
           child: Column(
             children: [
-              /// EXISTING FIELDS (unchanged)...
+              DropdownButtonFormField<String>(
+                value: selectedTempleId,
+                decoration: inputDecoration('Temple'),
+                items: temples
+                    .map(
+                      (temple) => DropdownMenuItem<String>(
+                        value: temple['id']?.toString(),
+                        child: Text(
+                          temple['name']?.toString() ??
+                              temple['title']?.toString() ??
+                              temple['id']?.toString() ??
+                              'Temple',
+                        ),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) {
+                  setState(() {
+                    selectedTempleId = value;
+                  });
+                },
+              ),
+              const SizedBox(height: 16),
+
+              DropdownButtonFormField<String>(
+                value: selectedGroupId,
+                decoration: inputDecoration('Group (optional)'),
+                items: [
+                  const DropdownMenuItem<String>(
+                    value: null,
+                    child: Text('No group'),
+                  ),
+                  ...groups.map(
+                    (group) => DropdownMenuItem<String>(
+                      value: group['id']?.toString(),
+                      child: Text(
+                        group['name']?.toString() ??
+                            group['title']?.toString() ??
+                            group['id']?.toString() ??
+                            'Group',
+                      ),
+                    ),
+                  ),
+                ],
+                onChanged: (value) {
+                  setState(() {
+                    selectedGroupId = value;
+                  });
+                },
+              ),
+              const SizedBox(height: 16),
+
               DropdownButtonFormField<String>(
                 value: selectedCategory,
                 decoration: inputDecoration('Category'),
@@ -177,49 +392,107 @@ class _EventFormDialogState extends State<EventFormDialog> {
                 maxLines: 5,
                 decoration: inputDecoration('Description'),
               ),
-
               const SizedBox(height: 16),
 
-              /// 🔥 NEW IMAGE FIELD
               TextField(
                 controller: posterImageController,
                 decoration: inputDecoration('Poster Image URL'),
               ),
 
-              const SizedBox(height: 8),
-
-              /// 🔥 LIVE PREVIEW
-              if (posterImageController.text.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.network(
-                      posterImageController.text,
+              if (posterUrl.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: Image.network(
+                    posterUrl,
+                    height: 150,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
                       height: 120,
-                      fit: BoxFit.cover,
+                      width: double.infinity,
+                      alignment: Alignment.center,
+                      color: Colors.grey.shade100,
+                      child: const Text('Poster preview unavailable'),
                     ),
                   ),
                 ),
+              ],
 
+              const SizedBox(height: 16),
+
+              DropdownButtonFormField<String>(
+                value: selectedEventMode,
+                decoration: inputDecoration('Event Mode'),
+                items: eventModes
+                    .map((v) => DropdownMenuItem(value: v, child: Text(v)))
+                    .toList(),
+                onChanged: (v) => setState(() => selectedEventMode = v!),
+              ),
               const SizedBox(height: 16),
 
               TextField(
                 controller: locationController,
                 decoration: inputDecoration('Location'),
               ),
+              const SizedBox(height: 18),
+
+              _sectionTitle('Event Date & Time'),
+              const SizedBox(height: 10),
+
+              _pickerField(
+                label: 'Date',
+                value: _displayDate(),
+                icon: Icons.calendar_today_rounded,
+                onTap: _pickDate,
+              ),
+              const SizedBox(height: 12),
+
+              Row(
+                children: [
+                  Expanded(
+                    child: _pickerField(
+                      label: 'Start Time',
+                      value: _displayTime(
+                        selectedStartTime,
+                        'Select start time',
+                      ),
+                      icon: Icons.schedule_rounded,
+                      onTap: _pickStartTime,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _pickerField(
+                      label: 'End Time',
+                      value: _displayTime(selectedEndTime, 'Select end time'),
+                      icon: Icons.schedule_rounded,
+                      onTap: _pickEndTime,
+                    ),
+                  ),
+                ],
+              ),
+
               const SizedBox(height: 16),
 
-              TextField(
-                controller: startsAtController,
-                decoration: inputDecoration('Starts At'),
+              DropdownButtonFormField<String>(
+                value: selectedAttendanceMode,
+                decoration: inputDecoration('Attendance Mode'),
+                items: attendanceModes
+                    .map((v) => DropdownMenuItem(value: v, child: Text(v)))
+                    .toList(),
+                onChanged: (v) => setState(() => selectedAttendanceMode = v!),
               ),
-              const SizedBox(height: 16),
 
-              TextField(
-                controller: endsAtController,
-                decoration: inputDecoration('Ends At'),
-              ),
+              if (isEditing) ...[
+                const SizedBox(height: 8),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Active'),
+                  value: isActive,
+                  onChanged: (value) => setState(() => isActive = value),
+                ),
+              ],
             ],
           ),
         ),
