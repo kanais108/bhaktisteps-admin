@@ -10,10 +10,39 @@ class ContentPagesRepository {
     return response.data as List<dynamic>;
   }
 
-  Future<Map<String, dynamic>> saveContentPage(
+  Future<List<dynamic>> fetchChildren(String parentSlug) async {
+    final response = await apiClient.dio.get(
+      '/content-pages/$parentSlug/children',
+    );
+    return response.data as List<dynamic>;
+  }
+
+  Future<Map<String, dynamic>> createContentPage(
     Map<String, dynamic> data,
   ) async {
     final response = await apiClient.dio.post('/content-pages', data: data);
     return Map<String, dynamic>.from(response.data as Map);
+  }
+
+  Future<Map<String, dynamic>> updateContentPage(
+    String id,
+    Map<String, dynamic> data,
+  ) async {
+    final response = await apiClient.dio.patch(
+      '/content-pages/$id',
+      data: data,
+    );
+    return Map<String, dynamic>.from(response.data as Map);
+  }
+
+  Future<Map<String, dynamic>> saveContentPage(
+    Map<String, dynamic> data, {
+    String? id,
+  }) async {
+    if (id != null && id.isNotEmpty) {
+      return updateContentPage(id, data);
+    }
+
+    return createContentPage(data);
   }
 }
