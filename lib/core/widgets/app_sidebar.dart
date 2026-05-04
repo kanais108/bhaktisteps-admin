@@ -41,6 +41,12 @@ class AppSidebar extends StatelessWidget {
         Icons.notifications_rounded,
         const Color(0xFFF59E0B),
       ),
+      _NavItem(
+        'Content Pages',
+        '/content-pages',
+        Icons.article_rounded,
+        const Color(0xFF7C3AED),
+      ),
     ];
 
     return Container(
