@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'app.dart';
-import 'core/theme/admin_theme.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const BhaktiStepsAdminApp());
+
+  runApp(const ProviderScope(child: BhaktiStepsAdminApp()));
 }

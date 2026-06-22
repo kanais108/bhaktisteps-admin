@@ -30,6 +30,13 @@ class _ProgramsPageState extends ConsumerState<ProgramsPage> {
     return text;
   }
 
+  Widget _tableScroll(Widget child) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: child,
+    );
+  }
+
   Future<void> _openProgramDialog({Map<String, dynamic>? program}) async {
     final nameController = TextEditingController(
       text: program?['name']?.toString() ?? '',
@@ -460,40 +467,42 @@ class _ProgramsPageState extends ConsumerState<ProgramsPage> {
                     return const Text('No programs found.');
                   }
 
-                  return DataTable(
-                    columns: const [
-                      DataColumn(label: Text('Name')),
-                      DataColumn(label: Text('Weeks')),
-                      DataColumn(label: Text('Active')),
-                      DataColumn(label: Text('Batches')),
-                      DataColumn(label: Text('Actions')),
-                    ],
-                    rows: programs.map<DataRow>((program) {
-                      final count = program['_count']?['batches'] ?? 0;
+                  return _tableScroll(
+                    DataTable(
+                      columns: const [
+                        DataColumn(label: Text('Name')),
+                        DataColumn(label: Text('Weeks')),
+                        DataColumn(label: Text('Active')),
+                        DataColumn(label: Text('Batches')),
+                        DataColumn(label: Text('Actions')),
+                      ],
+                      rows: programs.map<DataRow>((program) {
+                        final count = program['_count']?['batches'] ?? 0;
 
-                      return DataRow(
-                        cells: [
-                          DataCell(Text(program['name']?.toString() ?? '-')),
-                          DataCell(
-                            Text(program['totalWeeks']?.toString() ?? '-'),
-                          ),
-                          DataCell(
-                            Text(program['isActive'] == true ? 'Yes' : 'No'),
-                          ),
-                          DataCell(Text(count.toString())),
-                          DataCell(
-                            TextButton(
-                              onPressed: () => _openProgramDialog(
-                                program: Map<String, dynamic>.from(
-                                  program as Map,
-                                ),
-                              ),
-                              child: const Text('Edit'),
+                        return DataRow(
+                          cells: [
+                            DataCell(Text(program['name']?.toString() ?? '-')),
+                            DataCell(
+                              Text(program['totalWeeks']?.toString() ?? '-'),
                             ),
-                          ),
-                        ],
-                      );
-                    }).toList(),
+                            DataCell(
+                              Text(program['isActive'] == true ? 'Yes' : 'No'),
+                            ),
+                            DataCell(Text(count.toString())),
+                            DataCell(
+                              TextButton(
+                                onPressed: () => _openProgramDialog(
+                                  program: Map<String, dynamic>.from(
+                                    program as Map,
+                                  ),
+                                ),
+                                child: const Text('Edit'),
+                              ),
+                            ),
+                          ],
+                        );
+                      }).toList(),
+                    ),
                   );
                 },
               ),
@@ -533,72 +542,79 @@ class _ProgramsPageState extends ConsumerState<ProgramsPage> {
                     return const Text('No batches found.');
                   }
 
-                  return DataTable(
-                    columns: const [
-                      DataColumn(label: Text('Batch')),
-                      DataColumn(label: Text('Program')),
-                      DataColumn(label: Text('Leader')),
-                      DataColumn(label: Text('Start Date')),
-                      DataColumn(label: Text('Active')),
-                      DataColumn(label: Text('Members')),
-                      DataColumn(label: Text('Sessions')),
-                      DataColumn(label: Text('Actions')),
-                    ],
-                    rows: batches.map<DataRow>((batch) {
-                      final program = batch['program'];
-                      final leader = batch['leader'];
-                      final count = batch['_count'];
+                  return _tableScroll(
+                    DataTable(
+                      columns: const [
+                        DataColumn(label: Text('Batch')),
+                        DataColumn(label: Text('Program')),
+                        DataColumn(label: Text('Leader')),
+                        DataColumn(label: Text('Start Date')),
+                        DataColumn(label: Text('Active')),
+                        DataColumn(label: Text('Members')),
+                        DataColumn(label: Text('Sessions')),
+                        DataColumn(label: Text('Actions')),
+                      ],
+                      rows: batches.map<DataRow>((batch) {
+                        final program = batch['program'];
+                        final leader = batch['leader'];
+                        final count = batch['_count'];
 
-                      return DataRow(
-                        selected: selectedBatchId == batch['id'].toString(),
-                        onSelectChanged: (_) {
-                          setState(() {
-                            selectedBatchId = batch['id'].toString();
-                          });
-                        },
-                        cells: [
-                          DataCell(Text(batch['name']?.toString() ?? '-')),
-                          DataCell(Text(program?['name']?.toString() ?? '-')),
-                          DataCell(
-                            Text(leader?['fullName']?.toString() ?? '-'),
-                          ),
-                          DataCell(Text(_displayDate(batch['startDate']))),
-                          DataCell(
-                            Text(batch['isActive'] == true ? 'Yes' : 'No'),
-                          ),
-                          DataCell(Text(count?['members']?.toString() ?? '0')),
-                          DataCell(Text(count?['sessions']?.toString() ?? '0')),
-                          DataCell(
-                            Row(
-                              children: [
-                                TextButton(
-                                  onPressed:
-                                      programsAsync.hasValue &&
-                                          leadersAsync.hasValue &&
-                                          treesAsync.hasValue
-                                      ? () => _openBatchDialog(
-                                          batch: Map<String, dynamic>.from(
-                                            batch as Map,
-                                          ),
-                                          programs: programsAsync.value ?? [],
-                                          leaders: leadersAsync.value ?? [],
-                                          trees: treesAsync.value ?? [],
-                                        )
-                                      : null,
-                                  child: const Text('Edit'),
-                                ),
-                                TextButton(
-                                  onPressed: () => _copyMembersFromGroup(
-                                    batch['id'].toString(),
-                                  ),
-                                  child: const Text('Copy Members'),
-                                ),
-                              ],
+                        return DataRow(
+                          selected: selectedBatchId == batch['id'].toString(),
+                          onSelectChanged: (_) {
+                            setState(() {
+                              selectedBatchId = batch['id'].toString();
+                            });
+                          },
+                          cells: [
+                            DataCell(Text(batch['name']?.toString() ?? '-')),
+                            DataCell(Text(program?['name']?.toString() ?? '-')),
+                            DataCell(
+                              Text(leader?['fullName']?.toString() ?? '-'),
                             ),
-                          ),
-                        ],
-                      );
-                    }).toList(),
+                            DataCell(Text(_displayDate(batch['startDate']))),
+                            DataCell(
+                              Text(batch['isActive'] == true ? 'Yes' : 'No'),
+                            ),
+                            DataCell(
+                              Text(count?['members']?.toString() ?? '0'),
+                            ),
+                            DataCell(
+                              Text(count?['sessions']?.toString() ?? '0'),
+                            ),
+                            DataCell(
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  TextButton(
+                                    onPressed:
+                                        programsAsync.hasValue &&
+                                            leadersAsync.hasValue &&
+                                            treesAsync.hasValue
+                                        ? () => _openBatchDialog(
+                                            batch: Map<String, dynamic>.from(
+                                              batch as Map,
+                                            ),
+                                            programs: programsAsync.value ?? [],
+                                            leaders: leadersAsync.value ?? [],
+                                            trees: treesAsync.value ?? [],
+                                          )
+                                        : null,
+                                    child: const Text('Edit'),
+                                  ),
+                                  TextButton(
+                                    onPressed: () => _copyMembersFromGroup(
+                                      batch['id'].toString(),
+                                    ),
+                                    child: const Text('Copy Members'),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        );
+                      }).toList(),
+                    ),
                   );
                 },
               ),
@@ -630,39 +646,41 @@ class _ProgramsPageState extends ConsumerState<ProgramsPage> {
                               return const Text('No members in this batch.');
                             }
 
-                            return DataTable(
-                              columns: const [
-                                DataColumn(label: Text('Name')),
-                                DataColumn(label: Text('Email')),
-                                DataColumn(label: Text('Role')),
-                                DataColumn(label: Text('Active')),
-                              ],
-                              rows: members.map<DataRow>((member) {
-                                final user = member['user'];
+                            return _tableScroll(
+                              DataTable(
+                                columns: const [
+                                  DataColumn(label: Text('Name')),
+                                  DataColumn(label: Text('Email')),
+                                  DataColumn(label: Text('Role')),
+                                  DataColumn(label: Text('Active')),
+                                ],
+                                rows: members.map<DataRow>((member) {
+                                  final user = member['user'];
 
-                                return DataRow(
-                                  cells: [
-                                    DataCell(
-                                      Text(
-                                        user?['fullName']?.toString() ?? '-',
+                                  return DataRow(
+                                    cells: [
+                                      DataCell(
+                                        Text(
+                                          user?['fullName']?.toString() ?? '-',
+                                        ),
                                       ),
-                                    ),
-                                    DataCell(
-                                      Text(user?['email']?.toString() ?? '-'),
-                                    ),
-                                    DataCell(
-                                      Text(user?['role']?.toString() ?? '-'),
-                                    ),
-                                    DataCell(
-                                      Text(
-                                        member['isActive'] == true
-                                            ? 'Yes'
-                                            : 'No',
+                                      DataCell(
+                                        Text(user?['email']?.toString() ?? '-'),
                                       ),
-                                    ),
-                                  ],
-                                );
-                              }).toList(),
+                                      DataCell(
+                                        Text(user?['role']?.toString() ?? '-'),
+                                      ),
+                                      DataCell(
+                                        Text(
+                                          member['isActive'] == true
+                                              ? 'Yes'
+                                              : 'No',
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                }).toList(),
+                              ),
                             );
                           },
                         );
