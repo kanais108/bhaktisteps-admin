@@ -344,6 +344,76 @@ class _ProgramsPageState extends ConsumerState<ProgramsPage> {
     }
   }
 
+  Future<void> _addMemberToBatch(String batchId) async {
+    final users = await ref.read(programUsersProvider.future);
+
+    String? selectedUserId;
+
+    if (!mounted) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (dialogContext, setDialogState) {
+            return AlertDialog(
+              title: const Text('Add Member to Batch'),
+              content: SizedBox(
+                width: 520,
+                child: DropdownButtonFormField<String>(
+                  value: selectedUserId,
+                  decoration: const InputDecoration(
+                    labelText: 'Select Member',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: users.map<DropdownMenuItem<String>>((user) {
+                    final userMap = Map<String, dynamic>.from(user as Map);
+                    final name = userMap['fullName']?.toString() ?? '';
+                    final email = userMap['email']?.toString() ?? '';
+                    final role = userMap['role']?.toString() ?? '';
+
+                    return DropdownMenuItem<String>(
+                      value: userMap['id']?.toString(),
+                      child: Text('$name • $role • $email'),
+                    );
+                  }).toList(),
+                  onChanged: (value) {
+                    setDialogState(() => selectedUserId = value);
+                  },
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext, false),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(dialogContext, true),
+                  child: const Text('Add'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (confirmed != true || selectedUserId == null) return;
+
+    try {
+      final service = ref.read(programsServiceProvider);
+
+      await service.addBatchMember(batchId: batchId, userId: selectedUserId!);
+
+      _showSnack('Member added to batch');
+
+      ref.invalidate(programBatchMembersProvider(batchId));
+      ref.invalidate(programBatchesProvider);
+    } catch (e) {
+      _showSnack('Failed to add member: $e', error: true);
+    }
+  }
+
   Future<void> _copyMembersFromGroup(String batchId) async {
     final groups = await ref.read(programGroupsProvider.future);
 
@@ -620,11 +690,24 @@ class _ProgramsPageState extends ConsumerState<ProgramsPage> {
               ),
             ),
             const SizedBox(height: 32),
-            Text(
-              'Batch Members',
-              style: Theme.of(
-                context,
-              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Batch Members',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                ElevatedButton.icon(
+                  onPressed: selectedBatchId == null
+                      ? null
+                      : () => _addMemberToBatch(selectedBatchId!),
+                  icon: const Icon(Icons.person_add_alt_1_rounded),
+                  label: const Text('Add Member'),
+                ),
+              ],
             ),
             const SizedBox(height: 12),
             _card(

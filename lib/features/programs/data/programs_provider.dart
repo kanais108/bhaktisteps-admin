@@ -39,3 +39,8 @@ final programGroupsProvider = FutureProvider<List<dynamic>>((ref) async {
   final service = ref.read(programsServiceProvider);
   return service.getGroups();
 });
+
+final programUsersProvider = FutureProvider<List<dynamic>>((ref) async {
+  final service = ref.read(programsServiceProvider);
+  return service.getUsers();
+});

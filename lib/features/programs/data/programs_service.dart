@@ -154,4 +154,9 @@ class ProgramsService {
     final response = await apiClient.dio.get('/groups');
     return response.data as List<dynamic>;
   }
+
+  Future<List<dynamic>> getUsers() async {
+    final response = await apiClient.dio.get('/users');
+    return response.data as List<dynamic>;
+  }
 }
