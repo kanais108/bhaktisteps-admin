@@ -345,11 +345,23 @@ class _ProgramsPageState extends ConsumerState<ProgramsPage> {
   }
 
   Future<void> _addMemberToBatch(String batchId) async {
-    final users = await ref.read(programUsersProvider.future);
+    List<dynamic> users;
 
-    String? selectedUserId;
+    try {
+      users = await ref.read(programUsersProvider.future);
+    } catch (e) {
+      _showSnack('Failed to load users: $e', error: true);
+      return;
+    }
 
     if (!mounted) return;
+
+    if (users.isEmpty) {
+      _showSnack('No users found to add', error: true);
+      return;
+    }
+
+    final selectedUserIds = <String>{};
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -357,39 +369,116 @@ class _ProgramsPageState extends ConsumerState<ProgramsPage> {
         return StatefulBuilder(
           builder: (dialogContext, setDialogState) {
             return AlertDialog(
-              title: const Text('Add Member to Batch'),
+              title: const Text('Add Members to Batch'),
               content: SizedBox(
-                width: 520,
-                child: DropdownButtonFormField<String>(
-                  value: selectedUserId,
-                  decoration: const InputDecoration(
-                    labelText: 'Select Member',
-                    border: OutlineInputBorder(),
-                  ),
-                  items: users.map<DropdownMenuItem<String>>((user) {
-                    final userMap = Map<String, dynamic>.from(user as Map);
-                    final name = userMap['fullName']?.toString() ?? '';
-                    final email = userMap['email']?.toString() ?? '';
-                    final role = userMap['role']?.toString() ?? '';
+                width: 720,
+                height: 520,
+                child: Column(
+                  children: [
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        '${selectedUserIds.length} selected',
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Expanded(
+                      child: ListView.separated(
+                        itemCount: users.length,
+                        separatorBuilder: (_, __) => const Divider(height: 1),
+                        itemBuilder: (context, index) {
+                          final userMap = Map<String, dynamic>.from(
+                            users[index] as Map,
+                          );
 
-                    return DropdownMenuItem<String>(
-                      value: userMap['id']?.toString(),
-                      child: Text('$name • $role • $email'),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    setDialogState(() => selectedUserId = value);
-                  },
+                          final userId = userMap['id']?.toString();
+                          final name = userMap['fullName']?.toString() ?? '';
+                          final email = userMap['email']?.toString() ?? '';
+                          final role = userMap['role']?.toString() ?? '';
+                          final isActive = userMap['isActive'] == true;
+
+                          if (userId == null || userId.isEmpty) {
+                            return const SizedBox.shrink();
+                          }
+
+                          final selected = selectedUserIds.contains(userId);
+
+                          return CheckboxListTile(
+                            value: selected,
+                            controlAffinity: ListTileControlAffinity.leading,
+                            title: Text(
+                              name.isEmpty ? email : name,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            subtitle: Text('$role • $email'),
+                            secondary: isActive
+                                ? const Icon(
+                                    Icons.check_circle,
+                                    color: Colors.green,
+                                  )
+                                : const Icon(Icons.cancel, color: Colors.red),
+                            onChanged: isActive
+                                ? (checked) {
+                                    setDialogState(() {
+                                      if (checked == true) {
+                                        selectedUserIds.add(userId);
+                                      } else {
+                                        selectedUserIds.remove(userId);
+                                      }
+                                    });
+                                  }
+                                : null,
+                          );
+                        },
+                      ),
+                    ),
+                  ],
                 ),
               ),
               actions: [
+                TextButton(
+                  onPressed: () {
+                    setDialogState(() {
+                      selectedUserIds.clear();
+                    });
+                  },
+                  child: const Text('Clear'),
+                ),
+                TextButton(
+                  onPressed: () {
+                    setDialogState(() {
+                      selectedUserIds.clear();
+
+                      for (final user in users) {
+                        final userMap = Map<String, dynamic>.from(user as Map);
+                        final userId = userMap['id']?.toString();
+                        final isActive = userMap['isActive'] == true;
+
+                        if (userId != null && userId.isNotEmpty && isActive) {
+                          selectedUserIds.add(userId);
+                        }
+                      }
+                    });
+                  },
+                  child: const Text('Select All'),
+                ),
                 TextButton(
                   onPressed: () => Navigator.pop(dialogContext, false),
                   child: const Text('Cancel'),
                 ),
                 ElevatedButton(
-                  onPressed: () => Navigator.pop(dialogContext, true),
-                  child: const Text('Add'),
+                  onPressed: selectedUserIds.isEmpty
+                      ? null
+                      : () => Navigator.pop(dialogContext, true),
+                  child: Text('Add ${selectedUserIds.length}'),
                 ),
               ],
             );
@@ -398,19 +487,21 @@ class _ProgramsPageState extends ConsumerState<ProgramsPage> {
       },
     );
 
-    if (confirmed != true || selectedUserId == null) return;
+    if (confirmed != true || selectedUserIds.isEmpty) return;
 
     try {
       final service = ref.read(programsServiceProvider);
 
-      await service.addBatchMember(batchId: batchId, userId: selectedUserId!);
+      for (final userId in selectedUserIds) {
+        await service.addBatchMember(batchId: batchId, userId: userId);
+      }
 
-      _showSnack('Member added to batch');
+      _showSnack('${selectedUserIds.length} member(s) added to batch');
 
       ref.invalidate(programBatchMembersProvider(batchId));
       ref.invalidate(programBatchesProvider);
     } catch (e) {
-      _showSnack('Failed to add member: $e', error: true);
+      _showSnack('Failed to add members: $e', error: true);
     }
   }
 

@@ -156,7 +156,43 @@ class ProgramsService {
   }
 
   Future<List<dynamic>> getUsers() async {
-    final response = await apiClient.dio.get('/users');
-    return response.data as List<dynamic>;
+    final allUsers = <dynamic>[];
+    var page = 1;
+    const limit = 100;
+
+    while (true) {
+      final response = await apiClient.dio.get(
+        '/users',
+        queryParameters: {'page': page, 'limit': limit},
+      );
+
+      final data = response.data;
+
+      List<dynamic> currentPageUsers = [];
+
+      if (data is List) {
+        currentPageUsers = data;
+      } else if (data is Map) {
+        if (data['items'] is List) {
+          currentPageUsers = data['items'] as List<dynamic>;
+        } else if (data['data'] is List) {
+          currentPageUsers = data['data'] as List<dynamic>;
+        } else if (data['users'] is List) {
+          currentPageUsers = data['users'] as List<dynamic>;
+        } else if (data['results'] is List) {
+          currentPageUsers = data['results'] as List<dynamic>;
+        }
+      }
+
+      allUsers.addAll(currentPageUsers);
+
+      if (currentPageUsers.length < limit) {
+        break;
+      }
+
+      page++;
+    }
+
+    return allUsers;
   }
 }
