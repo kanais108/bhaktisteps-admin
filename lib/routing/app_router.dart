@@ -10,6 +10,7 @@ import '../features/groups/presentation/groups_page.dart';
 import '../features/notifications/presentation/notifications_page.dart';
 import '../features/users/presentation/users_page.dart';
 import '../features/content_pages/presentation/content_pages_page.dart';
+import '../features/programs/presentation/programs_page.dart';
 
 class AppRouter {
   static GoRouter createRouter() {
@@ -40,6 +41,10 @@ class AppRouter {
             GoRoute(
               path: '/groups',
               builder: (context, state) => const GroupsPage(),
+            ),
+            GoRoute(
+              path: '/programs',
+              builder: (context, state) => const ProgramsPage(),
             ),
             GoRoute(
               path: '/events',

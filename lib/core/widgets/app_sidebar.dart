@@ -30,6 +30,12 @@ class AppSidebar extends StatelessWidget {
         const Color(0xFF2563EB),
       ),
       _NavItem(
+        'Programs',
+        '/programs',
+        Icons.school_rounded,
+        const Color(0xFF16A34A),
+      ),
+      _NavItem(
         'Attendance',
         '/attendance',
         Icons.fact_check_rounded,
