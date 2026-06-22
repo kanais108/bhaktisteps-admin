@@ -427,239 +427,250 @@ class _ProgramsPageState extends ConsumerState<ProgramsPage> {
     final leadersAsync = ref.watch(programLeadersProvider);
     final treesAsync = ref.watch(programTreesProvider);
 
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'Programs',
-                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
-                ),
-              ),
-              ElevatedButton.icon(
-                onPressed: () => _openProgramDialog(),
-                icon: const Icon(Icons.add),
-                label: const Text('Create Program'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          _card(
-            child: programsAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, _) => Text('Failed to load programs: $error'),
-              data: (programs) {
-                if (programs.isEmpty) {
-                  return const Text('No programs found.');
-                }
-
-                return DataTable(
-                  columns: const [
-                    DataColumn(label: Text('Name')),
-                    DataColumn(label: Text('Weeks')),
-                    DataColumn(label: Text('Active')),
-                    DataColumn(label: Text('Batches')),
-                    DataColumn(label: Text('Actions')),
-                  ],
-                  rows: programs.map<DataRow>((program) {
-                    final count = program['_count']?['batches'] ?? 0;
-
-                    return DataRow(
-                      cells: [
-                        DataCell(Text(program['name']?.toString() ?? '-')),
-                        DataCell(
-                          Text(program['totalWeeks']?.toString() ?? '-'),
-                        ),
-                        DataCell(
-                          Text(program['isActive'] == true ? 'Yes' : 'No'),
-                        ),
-                        DataCell(Text(count.toString())),
-                        DataCell(
-                          TextButton(
-                            onPressed: () => _openProgramDialog(
-                              program: Map<String, dynamic>.from(
-                                program as Map,
-                              ),
-                            ),
-                            child: const Text('Edit'),
-                          ),
-                        ),
-                      ],
-                    );
-                  }).toList(),
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 32),
-          Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'Program Batches',
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
-                ),
-              ),
-              ElevatedButton.icon(
-                onPressed:
-                    programsAsync.hasValue &&
-                        leadersAsync.hasValue &&
-                        treesAsync.hasValue
-                    ? () => _openBatchDialog(
-                        programs: programsAsync.value ?? [],
-                        leaders: leadersAsync.value ?? [],
-                        trees: treesAsync.value ?? [],
-                      )
-                    : null,
-                icon: const Icon(Icons.add),
-                label: const Text('Create Batch'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          _card(
-            child: batchesAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, _) => Text('Failed to load batches: $error'),
-              data: (batches) {
-                if (batches.isEmpty) {
-                  return const Text('No batches found.');
-                }
-
-                return DataTable(
-                  columns: const [
-                    DataColumn(label: Text('Batch')),
-                    DataColumn(label: Text('Program')),
-                    DataColumn(label: Text('Leader')),
-                    DataColumn(label: Text('Start Date')),
-                    DataColumn(label: Text('Active')),
-                    DataColumn(label: Text('Members')),
-                    DataColumn(label: Text('Sessions')),
-                    DataColumn(label: Text('Actions')),
-                  ],
-                  rows: batches.map<DataRow>((batch) {
-                    final program = batch['program'];
-                    final leader = batch['leader'];
-                    final count = batch['_count'];
-
-                    return DataRow(
-                      selected: selectedBatchId == batch['id'].toString(),
-                      onSelectChanged: (_) {
-                        setState(() {
-                          selectedBatchId = batch['id'].toString();
-                        });
-                      },
-                      cells: [
-                        DataCell(Text(batch['name']?.toString() ?? '-')),
-                        DataCell(Text(program?['name']?.toString() ?? '-')),
-                        DataCell(Text(leader?['fullName']?.toString() ?? '-')),
-                        DataCell(Text(_displayDate(batch['startDate']))),
-                        DataCell(
-                          Text(batch['isActive'] == true ? 'Yes' : 'No'),
-                        ),
-                        DataCell(Text(count?['members']?.toString() ?? '0')),
-                        DataCell(Text(count?['sessions']?.toString() ?? '0')),
-                        DataCell(
-                          Row(
-                            children: [
-                              TextButton(
-                                onPressed:
-                                    programsAsync.hasValue &&
-                                        leadersAsync.hasValue &&
-                                        treesAsync.hasValue
-                                    ? () => _openBatchDialog(
-                                        batch: Map<String, dynamic>.from(
-                                          batch as Map,
-                                        ),
-                                        programs: programsAsync.value ?? [],
-                                        leaders: leadersAsync.value ?? [],
-                                        trees: treesAsync.value ?? [],
-                                      )
-                                    : null,
-                                child: const Text('Edit'),
-                              ),
-                              TextButton(
-                                onPressed: () => _copyMembersFromGroup(
-                                  batch['id'].toString(),
-                                ),
-                                child: const Text('Copy Members'),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    );
-                  }).toList(),
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 32),
-          Text(
-            'Batch Members',
-            style: Theme.of(
-              context,
-            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 12),
-          _card(
-            child: selectedBatchId == null
-                ? const Text('Select a batch to view members.')
-                : Consumer(
-                    builder: (context, ref, _) {
-                      final membersAsync = ref.watch(
-                        programBatchMembersProvider(selectedBatchId!),
-                      );
-
-                      return membersAsync.when(
-                        loading: () =>
-                            const Center(child: CircularProgressIndicator()),
-                        error: (error, _) =>
-                            Text('Failed to load members: $error'),
-                        data: (members) {
-                          if (members.isEmpty) {
-                            return const Text('No members in this batch.');
-                          }
-
-                          return DataTable(
-                            columns: const [
-                              DataColumn(label: Text('Name')),
-                              DataColumn(label: Text('Email')),
-                              DataColumn(label: Text('Role')),
-                              DataColumn(label: Text('Active')),
-                            ],
-                            rows: members.map<DataRow>((member) {
-                              final user = member['user'];
-
-                              return DataRow(
-                                cells: [
-                                  DataCell(
-                                    Text(user?['fullName']?.toString() ?? '-'),
-                                  ),
-                                  DataCell(
-                                    Text(user?['email']?.toString() ?? '-'),
-                                  ),
-                                  DataCell(
-                                    Text(user?['role']?.toString() ?? '-'),
-                                  ),
-                                  DataCell(
-                                    Text(
-                                      member['isActive'] == true ? 'Yes' : 'No',
-                                    ),
-                                  ),
-                                ],
-                              );
-                            }).toList(),
-                          );
-                        },
-                      );
-                    },
+    return Container(
+      color: const Color(0xFFF8FAFC),
+      width: double.infinity,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Programs',
+                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
                   ),
-          ),
-        ],
+                ),
+                ElevatedButton.icon(
+                  onPressed: () => _openProgramDialog(),
+                  icon: const Icon(Icons.add),
+                  label: const Text('Create Program'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            _card(
+              child: programsAsync.when(
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (error, _) => Text('Failed to load programs: $error'),
+                data: (programs) {
+                  if (programs.isEmpty) {
+                    return const Text('No programs found.');
+                  }
+
+                  return DataTable(
+                    columns: const [
+                      DataColumn(label: Text('Name')),
+                      DataColumn(label: Text('Weeks')),
+                      DataColumn(label: Text('Active')),
+                      DataColumn(label: Text('Batches')),
+                      DataColumn(label: Text('Actions')),
+                    ],
+                    rows: programs.map<DataRow>((program) {
+                      final count = program['_count']?['batches'] ?? 0;
+
+                      return DataRow(
+                        cells: [
+                          DataCell(Text(program['name']?.toString() ?? '-')),
+                          DataCell(
+                            Text(program['totalWeeks']?.toString() ?? '-'),
+                          ),
+                          DataCell(
+                            Text(program['isActive'] == true ? 'Yes' : 'No'),
+                          ),
+                          DataCell(Text(count.toString())),
+                          DataCell(
+                            TextButton(
+                              onPressed: () => _openProgramDialog(
+                                program: Map<String, dynamic>.from(
+                                  program as Map,
+                                ),
+                              ),
+                              child: const Text('Edit'),
+                            ),
+                          ),
+                        ],
+                      );
+                    }).toList(),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 32),
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Program Batches',
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
+                  ),
+                ),
+                ElevatedButton.icon(
+                  onPressed:
+                      programsAsync.hasValue &&
+                          leadersAsync.hasValue &&
+                          treesAsync.hasValue
+                      ? () => _openBatchDialog(
+                          programs: programsAsync.value ?? [],
+                          leaders: leadersAsync.value ?? [],
+                          trees: treesAsync.value ?? [],
+                        )
+                      : null,
+                  icon: const Icon(Icons.add),
+                  label: const Text('Create Batch'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            _card(
+              child: batchesAsync.when(
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (error, _) => Text('Failed to load batches: $error'),
+                data: (batches) {
+                  if (batches.isEmpty) {
+                    return const Text('No batches found.');
+                  }
+
+                  return DataTable(
+                    columns: const [
+                      DataColumn(label: Text('Batch')),
+                      DataColumn(label: Text('Program')),
+                      DataColumn(label: Text('Leader')),
+                      DataColumn(label: Text('Start Date')),
+                      DataColumn(label: Text('Active')),
+                      DataColumn(label: Text('Members')),
+                      DataColumn(label: Text('Sessions')),
+                      DataColumn(label: Text('Actions')),
+                    ],
+                    rows: batches.map<DataRow>((batch) {
+                      final program = batch['program'];
+                      final leader = batch['leader'];
+                      final count = batch['_count'];
+
+                      return DataRow(
+                        selected: selectedBatchId == batch['id'].toString(),
+                        onSelectChanged: (_) {
+                          setState(() {
+                            selectedBatchId = batch['id'].toString();
+                          });
+                        },
+                        cells: [
+                          DataCell(Text(batch['name']?.toString() ?? '-')),
+                          DataCell(Text(program?['name']?.toString() ?? '-')),
+                          DataCell(
+                            Text(leader?['fullName']?.toString() ?? '-'),
+                          ),
+                          DataCell(Text(_displayDate(batch['startDate']))),
+                          DataCell(
+                            Text(batch['isActive'] == true ? 'Yes' : 'No'),
+                          ),
+                          DataCell(Text(count?['members']?.toString() ?? '0')),
+                          DataCell(Text(count?['sessions']?.toString() ?? '0')),
+                          DataCell(
+                            Row(
+                              children: [
+                                TextButton(
+                                  onPressed:
+                                      programsAsync.hasValue &&
+                                          leadersAsync.hasValue &&
+                                          treesAsync.hasValue
+                                      ? () => _openBatchDialog(
+                                          batch: Map<String, dynamic>.from(
+                                            batch as Map,
+                                          ),
+                                          programs: programsAsync.value ?? [],
+                                          leaders: leadersAsync.value ?? [],
+                                          trees: treesAsync.value ?? [],
+                                        )
+                                      : null,
+                                  child: const Text('Edit'),
+                                ),
+                                TextButton(
+                                  onPressed: () => _copyMembersFromGroup(
+                                    batch['id'].toString(),
+                                  ),
+                                  child: const Text('Copy Members'),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      );
+                    }).toList(),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 32),
+            Text(
+              'Batch Members',
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 12),
+            _card(
+              child: selectedBatchId == null
+                  ? const Text('Select a batch to view members.')
+                  : Consumer(
+                      builder: (context, ref, _) {
+                        final membersAsync = ref.watch(
+                          programBatchMembersProvider(selectedBatchId!),
+                        );
+
+                        return membersAsync.when(
+                          loading: () =>
+                              const Center(child: CircularProgressIndicator()),
+                          error: (error, _) =>
+                              Text('Failed to load members: $error'),
+                          data: (members) {
+                            if (members.isEmpty) {
+                              return const Text('No members in this batch.');
+                            }
+
+                            return DataTable(
+                              columns: const [
+                                DataColumn(label: Text('Name')),
+                                DataColumn(label: Text('Email')),
+                                DataColumn(label: Text('Role')),
+                                DataColumn(label: Text('Active')),
+                              ],
+                              rows: members.map<DataRow>((member) {
+                                final user = member['user'];
+
+                                return DataRow(
+                                  cells: [
+                                    DataCell(
+                                      Text(
+                                        user?['fullName']?.toString() ?? '-',
+                                      ),
+                                    ),
+                                    DataCell(
+                                      Text(user?['email']?.toString() ?? '-'),
+                                    ),
+                                    DataCell(
+                                      Text(user?['role']?.toString() ?? '-'),
+                                    ),
+                                    DataCell(
+                                      Text(
+                                        member['isActive'] == true
+                                            ? 'Yes'
+                                            : 'No',
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              }).toList(),
+                            );
+                          },
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }
