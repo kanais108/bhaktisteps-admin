@@ -20,14 +20,50 @@ class _UserEditDialogState extends State<UserEditDialog> {
   String? selectedManagerId;
   late bool isActive;
 
-  final roles = ['DEVOTEE', 'GROUP_LEADER', 'ADMIN'];
+  final roles = const [
+    'DEVOTEE',
+    'SERVANT_LEADER',
+    'SECTOR_LEADER',
+    'CIRCLE_LEADER',
+    'SUPER_ADMIN',
+  ];
 
   @override
   void initState() {
     super.initState();
-    selectedRole = widget.user['role']?.toString() ?? 'DEVOTEE';
+
+    final currentRole = widget.user['role']?.toString() ?? 'DEVOTEE';
+
+    // Safety: if old data still has GROUP_LEADER / ADMIN, map it to current roles.
+    if (currentRole == 'GROUP_LEADER') {
+      selectedRole = 'SERVANT_LEADER';
+    } else if (currentRole == 'ADMIN') {
+      selectedRole = 'SUPER_ADMIN';
+    } else if (roles.contains(currentRole)) {
+      selectedRole = currentRole;
+    } else {
+      selectedRole = 'DEVOTEE';
+    }
+
     selectedManagerId = widget.user['reportsToUserId']?.toString();
     isActive = widget.user['isActive'] == true;
+  }
+
+  String _roleLabel(String role) {
+    switch (role) {
+      case 'DEVOTEE':
+        return 'Devotee';
+      case 'SERVANT_LEADER':
+        return 'Servant Leader';
+      case 'SECTOR_LEADER':
+        return 'Sector Leader';
+      case 'CIRCLE_LEADER':
+        return 'Circle Leader';
+      case 'SUPER_ADMIN':
+        return 'Super Admin';
+      default:
+        return role;
+    }
   }
 
   InputDecoration _inputDecoration(String label) {
@@ -57,7 +93,6 @@ class _UserEditDialogState extends State<UserEditDialog> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // 🧾 Header
               const Text(
                 'Edit User',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
@@ -65,7 +100,6 @@ class _UserEditDialogState extends State<UserEditDialog> {
 
               const SizedBox(height: 20),
 
-              // 👤 User Info (read-only)
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(12),
@@ -91,34 +125,39 @@ class _UserEditDialogState extends State<UserEditDialog> {
 
               const SizedBox(height: 20),
 
-              // 🏷 Role
               DropdownButtonFormField<String>(
                 value: selectedRole,
                 decoration: _inputDecoration('Role'),
                 items: roles
                     .map(
-                      (role) =>
-                          DropdownMenuItem(value: role, child: Text(role)),
+                      (role) => DropdownMenuItem<String>(
+                        value: role,
+                        child: Text(_roleLabel(role)),
+                      ),
                     )
                     .toList(),
                 onChanged: (value) {
+                  if (value == null) return;
+
                   setState(() {
-                    selectedRole = value!;
-                    selectedManagerId = null; // reset hierarchy
+                    selectedRole = value;
+                    selectedManagerId = null;
                   });
                 },
               ),
 
               const SizedBox(height: 16),
 
-              // 🧑‍💼 Manager
               DropdownButtonFormField<String?>(
                 value: selectedManagerId,
                 decoration: _inputDecoration('Reports To (optional)'),
                 items: [
-                  const DropdownMenuItem(value: null, child: Text('None')),
+                  const DropdownMenuItem<String?>(
+                    value: null,
+                    child: Text('None'),
+                  ),
                   ...widget.assignableManagers.map(
-                    (m) => DropdownMenuItem<String>(
+                    (m) => DropdownMenuItem<String?>(
                       value: m['id'].toString(),
                       child: Text(m['fullName']?.toString() ?? ''),
                     ),
@@ -133,7 +172,6 @@ class _UserEditDialogState extends State<UserEditDialog> {
 
               const SizedBox(height: 20),
 
-              // 🔘 Status Toggle
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
@@ -155,7 +193,6 @@ class _UserEditDialogState extends State<UserEditDialog> {
 
               const SizedBox(height: 24),
 
-              // 🔘 Actions
               Row(
                 children: [
                   Expanded(
