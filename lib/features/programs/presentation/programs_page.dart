@@ -263,10 +263,51 @@ class _ProgramsPageState extends ConsumerState<ProgramsPage> {
                       const SizedBox(height: 12),
                       TextField(
                         controller: startDateController,
+                        readOnly: true,
                         decoration: const InputDecoration(
-                          labelText: 'Start Date YYYY-MM-DD',
+                          labelText: 'Start Date',
+                          hintText: 'Select date',
                           border: OutlineInputBorder(),
+                          suffixIcon: Icon(Icons.calendar_today_rounded),
                         ),
+                        onTap: () async {
+                          final currentText = startDateController.text.trim();
+
+                          DateTime initialDate = DateTime.now();
+
+                          if (currentText.isNotEmpty) {
+                            final parsedDate = DateTime.tryParse(currentText);
+                            if (parsedDate != null) {
+                              initialDate = parsedDate;
+                            }
+                          }
+
+                          final selectedDate = await showDatePicker(
+                            context: context,
+                            initialDate: initialDate,
+                            firstDate: DateTime(2020),
+                            lastDate: DateTime(2100),
+                          );
+
+                          if (selectedDate == null) return;
+
+                          final yyyy = selectedDate.year.toString().padLeft(
+                            4,
+                            '0',
+                          );
+                          final mm = selectedDate.month.toString().padLeft(
+                            2,
+                            '0',
+                          );
+                          final dd = selectedDate.day.toString().padLeft(
+                            2,
+                            '0',
+                          );
+
+                          setDialogState(() {
+                            startDateController.text = '$yyyy-$mm-$dd';
+                          });
+                        },
                       ),
                       const SizedBox(height: 8),
                       SwitchListTile(
